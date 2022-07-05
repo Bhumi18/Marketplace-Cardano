@@ -11,10 +11,10 @@ module Market.Offchain
 
 import qualified Data.Map                  as Map
 import           Data.Monoid               as Mnd ( (<>), mconcat )
-import           Control.Monad             ( void, forever )
+import           Control.Monad             ( void, forever, forM )
 import           Data.Aeson                (ToJSON)
 import           Data.Text                 (Text)
-import           Prelude                   (String, fromIntegral, ceiling, Float, (*), (-), (/), show, and, const)
+import           Prelude                   (String, Monad,fromIntegral, ceiling, Float, (*), (-), (/), show, and, const)
 
 
 import Plutus.Contract as Contract
@@ -70,8 +70,6 @@ sumRoyalty [] = 0
 sumRoyalty (x:xs) = nRoyPrct x + sumRoyalty xs
 
 
-
-
 startSale :: StartParams -> Contract w SaleSchema Text ()
 startSale sp = do
     pkh <- Contract.ownPubKeyHash
@@ -100,7 +98,7 @@ buy bp = do
             let lookups = Constraints.typedValidatorLookups (O2.typedBuyValidator mp) <>
                           Constraints.unspentOutputs (Map.singleton oref o)   <>
                           Constraints.otherScript (O2.buyValidator mp)
-                tx      = Constraints.mustSpendScriptOutput oref r           <>
+            let tx = Constraints.mustSpendScriptOutput oref r           <>
                           Constraints.mustPayToPubKey pkh val                <>
                           Constraints.mustPayToPubKey (nSeller nfts) valAdaS <>
                           Constraints.mustPayToPubKey (feeAddr mp) valAdaF
@@ -109,19 +107,12 @@ buy bp = do
                 void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
                 Contract.logInfo @String "buy transaction confirmed"
             else do
-                splitRoyalties (rAddr nfts) (nPrice nfts)
+                forM  (rAddr nfts) $ \x -> do
+                    let valRoy  = Ada.lovelaceValueOf (ceiling (fromIntegral (nRoyPrct x) / 100 Prelude.* fromIntegral (nPrice nfts) :: Float))
+                        txFinal = Constraints.mustPayToPubKey (nRoyAddr x) valRoy <> tx
+                    ledgerTx <- submitTxConstraintsWith lookups txFinal
+                    void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
                 Contract.logInfo @String "buy transaction confirmed"
-
-    where
-        splitRoyalties :: [RoyAddr] -> Integer  -> ()
-        splitRoyalties [] _ = ()
-        splitRoyalties  (x:xs) price tx=do
-            let valRoy  = Ada.lovelaceValueOf (ceiling (fromIntegral (nRoyPrct x) / 100 Prelude.* fromIntegral (price) :: Float))
-                txFinal = Constraints.mustPayToPubKey (nRoyAddr x) valRoy <> tx
-            ledgerTx <- submitTxConstraintsWith lookups txFinal
-            void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
-            splitRoyalties xs price
-
 
 
 buy' :: (BuyParams, BuyParams) -> Contract w SaleSchema Text ()
@@ -138,13 +129,13 @@ buy' (bp1, bp2) = do
                     let r       = Redeemer $ PlutusTx.toBuiltinData Buy
                         val     = Value.singleton (nCurrency nfts) (nToken nfts) 1
                         val'    = Value.singleton (nCurrency nfts') (nToken nfts') 1
-                        valAdaS = Ada.lovelaceValueOf (ceiling ((1 - 0.01 - (fromIntegral (nRoyPrct $ rAddr nfts) / 100)) Prelude.* fromIntegral (nPrice nfts) :: Float))
+                        valAdaS = Ada.lovelaceValueOf (ceiling ((1 - 0.01 - (fromIntegral (sumRoyalty $ rAddr nfts) / 100)) Prelude.* fromIntegral (nPrice nfts) :: Float))
                         valAdaF = Ada.lovelaceValueOf (ceiling (0.01 Prelude.* fromIntegral (nPrice nfts) :: Float))
                     let lookups = Constraints.typedValidatorLookups (O2.typedBuyValidator mp) <>
                                   Constraints.unspentOutputs (Map.singleton oref o)   <>
                                   Constraints.unspentOutputs (Map.singleton oref' o')   <>
                                   Constraints.otherScript (O2.buyValidator mp)
-                        tx      = Constraints.mustSpendScriptOutput oref r           <>
+                    let tx      = Constraints.mustSpendScriptOutput oref r           <>
                                   Constraints.mustSpendScriptOutput oref' r          <>
                                   Constraints.mustPayToPubKey pkh val                <>
                                   Constraints.mustPayToPubKey pkh val'               <>
@@ -155,10 +146,11 @@ buy' (bp1, bp2) = do
                         void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
                         Contract.logInfo @String "buy transaction confirmed"
                     else do
-                        let valRoy  = Ada.lovelaceValueOf (ceiling (fromIntegral (nRoyPrct $ rAddr nfts) / 100 Prelude.* fromIntegral (nPrice nfts) :: Float))
-                            txFinal = Constraints.mustPayToPubKey (nRoyAddr $ rAddr nfts) valRoy <> tx
-                        ledgerTx <- submitTxConstraintsWith lookups txFinal
-                        void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
+                        forM  (rAddr nfts) $ \x -> do
+                            let valRoy  = Ada.lovelaceValueOf (ceiling (fromIntegral (nRoyPrct x) / 100 Prelude.* fromIntegral (nPrice nfts) :: Float))
+                                txFinal = Constraints.mustPayToPubKey (nRoyAddr x) valRoy <> tx
+                            ledgerTx <- submitTxConstraintsWith lookups txFinal
+                            void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
                         Contract.logInfo @String "buy transaction confirmed"
 
 

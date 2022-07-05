@@ -29,7 +29,7 @@ mp = MarketParams companyPkh
 
 
 companyPkhReal :: PubKeyHash
-companyPkhReal = "09aaedfc2c267948a623a4dddd093327c235c3fa88a47f14d41a7347"
+companyPkhReal = "06815038a71dd54d8a7db7eccf405aa25fff04590f198134bc70d8a8"
 
 
 mpReal :: MarketParams
@@ -39,7 +39,7 @@ mpReal = MarketParams companyPkhReal
 
 
 companyPkhMainnet :: PubKeyHash
-companyPkhMainnet = "09aaedfc2c267948a623a4dddd093327c235c3fa88a47f14d41a7347"
+companyPkhMainnet = "06815038a71dd54d8a7db7eccf405aa25fff04590f198134bc70d8a8"
 
 
 mpMainnet :: MarketParams

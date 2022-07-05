@@ -21,13 +21,31 @@ import           Data.Default (def)
 
 import Utility         (wallet, mp)
 import Market.Offchain (endpoints)
-import Market.Types    (StartParams(..), BuyParams(..))
+import Market.Types    
+
+
+royalty1 :: RoyAddr
+royalty1 = RoyAddr
+    {
+        nRoyAddr  = "09aaedfc2c267948a623a4dddd093327c235c3fa88a47f14d41a7347" 
+        ,nRoyPrct = 2    
+    }
+
+
+royalty2 :: RoyAddr
+royalty2 = RoyAddr
+    {
+        nRoyAddr  = "d9c4c0fe99024fe7b811e68e9f361d8228dce57305b2d71170eba4ca" 
+        ,nRoyPrct = 3
+    }
+
 
 nftEx1 :: StartParams
 nftEx1 = StartParams
     { sPrice = 100
     , sTn    = "market1"
     , sCs    = "66"
+    , sAd  = [royalty1,royalty2]
     } -- This is an example token, 
       -- As these are the parameters of the validator, this info should be provided by the user of the contract
 
@@ -36,6 +54,7 @@ nftEx2 = StartParams
     { sPrice = 100
     , sTn    = "market2"
     , sCs    = "66"
+    , sAd  = [royalty1]
     }
 
 nftEx1' :: BuyParams
